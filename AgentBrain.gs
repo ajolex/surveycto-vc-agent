@@ -11,27 +11,27 @@ function summarizeChangesWithAI(technicalDiffs) {
     return "Agent detected no history: Initial deployment or first time in Agent Mode.";
   }
 
-  // Cap the diffs to avoid token limits if massive changes
-  var diffText = technicalDiffs.slice(0, 50).join("\n");
-  if (technicalDiffs.length > 50) diffText += `\n...[${technicalDiffs.length - 50} more changes truncated]`;
+  // Cap the diffs to avoid token limits, but increased significantly per user request
+  // Gemini 1.5/2.0 context is large enough for 500+ lines easily.
+  var diffText = technicalDiffs.slice(0, 500).join("\n");
+  if (technicalDiffs.length > 500) diffText += `\n...[${technicalDiffs.length - 500} more changes truncated]`;
 
   // 1. Prepare the Prompt
   var prompt = `
-You are a direct, technical deployment logger for SurveyCTO form definition programmed in Google spreadsheet.
+You are a direct, technical deployment logger for SurveyCTO form logic programmed in Google spreadsheet.
 Your goal is to write a clean, bulleted list of changes based on the raw logs below.
 
 RULES:
-1. NO conversational filler (No "Hi RAs", "Please check", "Thanks").
-2. Start directly with the bullet points.
-3. IF there are 5 or fewer unique changes:
-   - Be extremely specific.
-   - Include the exact "before" and "after" logic if provided in the logs.
-   - Format: "* The [field] for [question] changed: before [old] -> now [new]"
-   - For changes in the choices sheet use "list_name" to reference the changes instead of "IDs"
-   - Do NOT escape underscores (e.g., write "test_var", NOT "test\_var").
-4. IF there are MORE than 5 unique changes:
-   - Generalize the changes to avoid overwhelming text but List the specific questions/modules that changed.(e.g., "Updated skip logic for 12 questions: var1, var2, var3, var4, var5, var6, var7, var8, var9, var10, var11, var12").
-   - Do NOT list every single value for massive updates.
+1. NO conversational filler. Start directly with the bullet points.
+2. ACCURACY IS PARAMOUNT. specific technical values matter (relevance, calculate, etc).
+3. IF you see "TRANSLATION_CHANGED: [column]", summarize it as "Revised translation in [column] for [question/row]".
+4. For specific columns (relevance, calculate, name, type, constraint, required, disabled, list_name, value, repeat_count, choice_filter):
+   - You MUST report the exact change: "The [column] for [question] changed: [old_val] -> [new_val]"
+   - Do NOT generalize these if they are few.
+5. IF there are MANY changes (over 20):
+   - Group purely content/translation changes: "Revised translations for X questions."
+   - BUT ALWAYS explicitly list logic changes (relevance/calculate) unless there are hundreds of them.
+6. Do NOT escape underscores (e.g., write "test_var", NOT "test\_var").
 
 RAW LOGS:
 ${diffText}

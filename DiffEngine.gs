@@ -15,9 +15,6 @@ function generateTechnicalDiff() {
   }
 
   // 2. Compare Choices (Key: 'list_name' + 'value')
-  // Note: For choices, we need a composite key usually, but let's stick to the plan's 'choice_key' concept
-  // or default to 'value' if 'choice_key' isn't explicitly there. 
-  // Ideally, choice uniqueness is list_name + value.
   try {
     changes = changes.concat(compareSheets(ss, 'choices', '_snapshot_choices', 'value'));
   } catch (e) {
@@ -46,9 +43,8 @@ function compareSheets(ss, currentName, snapshotName, keyCol) {
     } else {
       var rowDiffs = getRowDifferences(curMap[key], snapMap[key]);
       if (rowDiffs.length > 0) {
-        // If too many columns changed, maybe just say "Modified X columns"
-        var changeDesc = rowDiffs.length > 3 ? rowDiffs.slice(0, 3).join(", ") + "..." : rowDiffs.join(", ");
-        diffs.push(`MODIFIED row '${key}' in [${currentName}]: changed (${changeDesc})`);
+         // No truncation here anymore - we want ALL changes for the agent
+        diffs.push(`MODIFIED row '${key}' in [${currentName}]: ${rowDiffs.join(", ")}`);
       }
     }
   }
@@ -105,12 +101,30 @@ function getDataMap(sheet, keyName) {
 
 function getRowDifferences(newRow, oldRow) {
   var diffs = [];
-  var ignore = ['label']; // We handle label separately or ignore if you want
+  // Critical columns we ALWAYS want specific values for
+  var criticalCols = ['relevance', 'calculate', 'name', 'type', 'constraint', 'required', 'disabled', 'list_name', 'value', 'repeat_count', 'choice_filter'];
   
   for (var k in newRow) {
-    if (k === 'name' || k === 'value' || k === 'list_name') continue; // Don't flag the ID itself
-    if (String(newRow[k]) !== String(oldRow[k])) {
-      diffs.push(`${k} (was: "${oldRow[k]}" -> now: "${newRow[k]}")`);
+    if (k === 'name' || k === 'value' && !criticalCols.includes(k)) continue; // Don't flag the ID itself unless it's critical? Actually name/value are keys usually.
+    // If 'name' is the key, we don't need to report it changed (it can't change, or it's a new row).
+    // But 'name' might be payload in a choices sheet (unlikely).
+    // Let's stick to standard ignore of valid keys if they are the primary key.
+    
+    var valNew = String(newRow[k]);
+    var valOld = String(oldRow[k]);
+
+    if (valNew !== valOld) {
+      if (k.toLowerCase().startsWith('label')) {
+         // Translation/Label change -> Simplified Reporting
+         diffs.push(`TRANSLATION_CHANGED: ${k}`);
+      } else if (criticalCols.includes(k)) {
+         // Critical Column -> Specific Reporting
+         diffs.push(`${k} (was: "${valOld}" -> now: "${valNew}")`);
+      } else {
+         // Standard Column -> Standard Reporting (or maybe Specific too?)
+         // Let's be specific for everything else too, as requested "all changes captured"
+         diffs.push(`${k} (was: "${valOld}" -> now: "${valNew}")`);
+      }
     }
   }
   return diffs;
