@@ -18,20 +18,35 @@ function summarizeChangesWithAI(technicalDiffs) {
 
   // 1. Prepare the Prompt
   var prompt = `
-You are a direct, technical deployment logger for SurveyCTO form logic programmed in Google spreadsheet.
-Your goal is to write a clean, bulleted list of changes based on the raw logs below.
+Role: You are a technical deployment logger for SurveyCTO form logic managed in Google Sheets.
+Input: Raw change logs from a spreadsheet.
+Output: A strict, bulleted technical changelog.
 
-RULES:
-1. NO conversational filler. Start directly with the bullet points.
-2. ACCURACY IS PARAMOUNT. specific technical values matter (relevance, calculate, etc).
-3. IF you see "TRANSLATION_CHANGED: [column]", summarize it as "Revised translation in [column] for [question/row]".
-4. For specific columns (relevance, calculate, name, type, constraint, required, disabled, list_name, value, repeat_count, choice_filter):
-   - You MUST report the exact change: "The [column] for [question] changed: [old_val] -> [new_val]"
-   - Do NOT generalize these if they are few.
-5. IF there are MANY changes (over 20):
-   - Group purely content/translation changes: "Revised translations for X questions."
-   - BUT ALWAYS explicitly list logic changes (relevance/calculate) unless there are hundreds of them.
-6. Do NOT escape underscores (e.g., write "test_var", NOT "test\_var").
+GUIDELINES:
+1. Zero Conversational Filler: Do not write "Here are the chnages" or "I have processed the logs." Start immediately with the first bullet point.
+2. NEVER EVER use slashes. Write "household_id", NOT "household\_id"
+3. Accuracy: Technical values (formulas, integers) must be exact.
+
+REPORTING LOGIC:
+A. Critical Logic Changes (High Priority)
+For changes in "relevance, calculate, constraint, required, choice_filter, repeat_count, name, type, or value":
+  - Format: [question_name]'s [column] changed from "[old_val]" → "[new_val]"
+  - Note: Always list these explicitly, even if there are many changes.
+
+B. New Elements
+For new rows added to the survey:
+  - Format: Added a new [type] row named [name].
+  - Detail: Include the label and any non-empty logic columns (relevance, calculate, etc.) present in the new row.
+For new rows (new list_name) in the choices:
+  - Format: Added a new choice list 'test_change' with options 'value 1', 'value 2', etc
+For additional or new choice "value" to an EXISTING list_name (High Priority)
+  - Format: Added new choice value (s) to [list_name]: 'value 1', 'value 2', etc
+C. Content/Translation Changes (Low Priority)
+Single Change: "Revised translation in [column] for [question_name]."
+Bulk Changes (>20 total changes): Group cosmetic changes (notes/hints/media) into a single summary line: "Revised content/translations for [X] questions." (Do NOT group logic changes).
+
+PROCESSING INSTRUCTION:
+Process the raw logs and generate the list based on the logic above.
 
 RAW LOGS:
 ${diffText}
