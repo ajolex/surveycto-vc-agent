@@ -9,16 +9,11 @@
 // ============================================
 const VERSION_HISTORY_SHEET_NAME = 'Version History';
 const PROPERTY_SERVER_URL = 'surveycto_server_url';
-const PROPERTY_USERNAME = 'surveycto_username';
-const PROPERTY_PASSWORD = 'surveycto_password';
 
 // ============================================
 // MENU & UI
 // ============================================
 
-// ============================================
-// MENU & UI
-// ============================================
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('SurveyCTO Version Control')
@@ -26,8 +21,6 @@ function onOpen() {
     .addItem('Open Sidebar', 'showSidebar')
     .addSeparator()
     .addItem('Download History CSV', 'downloadHistoryCsv')
-    .addSeparator()
-    .addItem('Settings', 'showSettingsDialog')
     .addToUi();
 }
 
@@ -48,10 +41,7 @@ function showDeployDialog() {
   SpreadsheetApp.getUi().showModalDialog(html, 'Deploy Form');
 }
 
-function showSettingsDialog() {
-  const html = HtmlService.createHtmlOutputFromFile('Settings').setWidth(450).setHeight(400);
-  SpreadsheetApp.getUi().showModalDialog(html, 'Settings');
-}
+
 
 function showVersionHistory() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -252,53 +242,9 @@ function getVersionHistory(limit) {
 // CREDENTIALS
 // ============================================
 
-function getCredentials() {
-  const props = PropertiesService.getUserProperties();
-  return {
-    serverUrl: props.getProperty(PROPERTY_SERVER_URL) || '',
-    username: props.getProperty(PROPERTY_USERNAME) || '',
-    password: props.getProperty(PROPERTY_PASSWORD) || ''
-  };
-}
 
-function saveCredentials(credentials) {
-  const props = PropertiesService.getUserProperties();
-  if (credentials.serverUrl !== undefined) props.setProperty(PROPERTY_SERVER_URL, credentials.serverUrl);
-  if (credentials.username !== undefined) props.setProperty(PROPERTY_USERNAME, credentials.username);
-  if (credentials.password !== undefined) props.setProperty(PROPERTY_PASSWORD, credentials.password);
-}
 
-function testConnection() {
-  const creds = getCredentials();
-  if (!creds.serverUrl || !creds.username || !creds.password) {
-    return { success: false, message: 'Please configure all credentials first.' };
-  }
-  
-  try {
-    const serverUrl = normalizeServerUrl(creds.serverUrl);
-    const response = UrlFetchApp.fetch(serverUrl, { method: 'get', followRedirects: false, muteHttpExceptions: true });
-    const code = response.getResponseCode();
-    
-    if (code === 200 || code === 301 || code === 302 || code === 403) {
-      return { success: true, message: 'Server is reachable!' };
-    }
-    return { success: false, message: 'Server not found or unexpected response: ' + code };
-  } catch (error) {
-    return { success: false, message: 'Connection error: ' + error.message };
-  }
-}
 
-function hasCredentials() {
-  const creds = getCredentials();
-  return !!(creds.serverUrl && creds.username && creds.password);
-}
-
-function clearCredentials() {
-  const props = PropertiesService.getUserProperties();
-  props.deleteProperty(PROPERTY_SERVER_URL);
-  props.deleteProperty(PROPERTY_USERNAME);
-  props.deleteProperty(PROPERTY_PASSWORD);
-}
 
 // ============================================
 // ONE-CLICK DEPLOY (DIRECT GOOGLE SHEETS)
@@ -323,12 +269,14 @@ function clearCredentials() {
  */
 function getDeployPopupData() {
   const formDetails = getFreshFormDetailsForDeployment();
-  const creds = getCredentials();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
   if (!formDetails.success) {
     return { success: false, error: formDetails.error };
   }
+  
+  const props = PropertiesService.getUserProperties();
+  const serverUrl = props.getProperty(PROPERTY_SERVER_URL) || '';
   
   // Generate the new version ID immediately
   const newVersion = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMddHHmm');
@@ -338,7 +286,7 @@ function getDeployPopupData() {
     formId: formDetails.formId,
     formTitle: formDetails.formTitle,
     version: newVersion,
-    serverUrl: normalizeServerUrl(creds.serverUrl),
+    serverUrl: normalizeServerUrl(serverUrl),
     spreadsheetId: ss.getId(),
     spreadsheetUrl: ss.getUrl(),
     spreadsheetName: ss.getName()
